@@ -21,15 +21,10 @@ export default async function handler(
           .json({ success: false, message: "Missing required fields" });
       }
 
-      // Fetch user email using service role key (bypasses RLS)
-      // Fetch user email from Supabase Auth
-      const { data: user, error } = await supabaseServer
-        .from("auth.users")
-        .select("email")
-        .eq("id", userId)
-        .single();
+      // Fetch user email using Supabase Auth Admin API
+      const { data: { user }, error } = await supabaseServer.auth.admin.getUserById(userId);
       
-        console.log(user, userId);
+      console.log(user, userId);
 
       if (error || !user) {
         console.error("Supabase fetch error:", error);

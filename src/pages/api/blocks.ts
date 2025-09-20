@@ -28,6 +28,8 @@ export default async function handler(
         .select("email")
         .eq("id", userId)
         .single();
+      
+        console.log(user, userId);
 
       if (error || !user) {
         console.error("Supabase fetch error:", error);

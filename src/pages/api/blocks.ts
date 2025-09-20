@@ -1,79 +1,97 @@
+// pages/api/blocks.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import clientPromise from "../../lib/mongodb";
 import { ObjectId } from "mongodb";
-import { createClient } from "@supabase/supabase-js";
-
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY!; // service role key for server-side requests
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { supabase } from "../../lib/supabaseClient"; // import existing Supabase client
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const client = await clientPromise;
   const db = client.db("quiet_hours");
   const collection = db.collection("blocks");
 
-  // CREATE
-  if (req.method === "POST") {
-    const { userId, date, startTime, endTime } = req.body;
+  try {
+    // CREATE block
+    if (req.method === "POST") {
+      const { userId, date, startTime, endTime } = req.body;
 
-    // Fetch user email from Supabase
-    const { data: user, error } = await supabase
-      .from("users") // replace with your Supabase users table name
-      .select("email")
-      .eq("id", userId)
-      .single();
+      if (!userId || !date || !startTime || !endTime) {
+        return res.status(400).json({ success: false, message: "Missing required fields" });
+      }
 
-    if (error || !user) {
-      return res.status(400).json({ success: false, message: "User not found in Supabase" });
+      // Fetch user email from Supabase
+      const { data: user, error } = await supabase
+        .from("users") // your Supabase users table
+        .select("email")
+        .eq("id", userId)
+        .single();
+
+      if (error || !user) {
+        return res.status(400).json({ success: false, message: "User not found" });
+      }
+
+      const email = user.email;
+
+      const startTimeUTC = new Date(`${date}T${startTime}:00Z`).toISOString();
+      const endTimeUTC = new Date(`${date}T${endTime}:00Z`).toISOString();
+
+      const result = await collection.insertOne({
+        userId,
+        email,
+        date,
+        startTime,
+        endTime,
+        startTimeUTC,
+        endTimeUTC,
+        notified: false,
+        createdAt: new Date(),
+      });
+
+      return res.status(201).json({ success: true, id: result.insertedId });
     }
 
-    const email = user.email;
+    // GET blocks by userId
+    if (req.method === "GET") {
+      const { userId } = req.query;
+      if (!userId) {
+        return res.status(400).json({ success: false, message: "Missing userId" });
+      }
+      const blocks = await collection.find({ userId }).toArray();
+      return res.json(blocks);
+    }
 
-    // Store UTC for scheduling
-    const startTimeUTC = new Date(`${date}T${startTime}:00Z`).toISOString();
-    const endTimeUTC = new Date(`${date}T${endTime}:00Z`).toISOString();
+    // UPDATE block
+    if (req.method === "PUT") {
+      const { id, date, startTime, endTime } = req.body;
+      if (!id || !date || !startTime || !endTime) {
+        return res.status(400).json({ success: false, message: "Missing required fields" });
+      }
 
-    const result = await collection.insertOne({
-      userId,
-      email, // save fetched email
-      date,
-      startTime,
-      endTime,
-      startTimeUTC,
-      endTimeUTC,
-      notified: false,
-      createdAt: new Date(),
-    });
+      const startTimeUTC = new Date(`${date}T${startTime}:00Z`).toISOString();
+      const endTimeUTC = new Date(`${date}T${endTime}:00Z`).toISOString();
 
-    return res.status(201).json({ success: true, id: result.insertedId });
+      const result = await collection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { date, startTime, endTime, startTimeUTC, endTimeUTC, notified: false } }
+      );
+
+      return res.json({ success: result.modifiedCount > 0 });
+    }
+
+    // DELETE block
+    if (req.method === "DELETE") {
+      const { id } = req.query;
+      if (!id) {
+        return res.status(400).json({ success: false, message: "Missing block id" });
+      }
+
+      const result = await collection.deleteOne({ _id: new ObjectId(id as string) });
+      return res.json({ success: result.deletedCount > 0 });
+    }
+
+    // Method not allowed
+    return res.status(405).json({ success: false, message: "Method not allowed" });
+  } catch (err) {
+    console.error("Error handling request:", err);
+    return res.status(500).json({ success: false, message: "Internal server error" });
   }
-
-  // Other CRUD operations...
-  if (req.method === "GET") {
-    const { userId } = req.query;
-    const blocks = await collection.find({ userId }).toArray();
-    return res.json(blocks);
-  }
-
-  if (req.method === "PUT") {
-    const { id, date, startTime, endTime } = req.body;
-    const startTimeUTC = new Date(`${date}T${startTime}:00Z`).toISOString();
-    const endTimeUTC = new Date(`${date}T${endTime}:00Z`).toISOString();
-
-    const result = await collection.updateOne(
-      { _id: new ObjectId(id) },
-      { $set: { date, startTime, endTime, startTimeUTC, endTimeUTC, notified: false } }
-    );
-
-    return res.json({ success: result.modifiedCount > 0 });
-  }
-
-  if (req.method === "DELETE") {
-    const { id } = req.query;
-    const result = await collection.deleteOne({ _id: new ObjectId(id as string) });
-    return res.json({ success: result.deletedCount > 0 });
-  }
-
-  res.status(405).end();
 }

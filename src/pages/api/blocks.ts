@@ -45,7 +45,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         notified: false,
         createdAt: new Date(),
       });
-
+      console.log(result);
       return res.status(201).json({ success: true, id: result.insertedId });
     }
 

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 
 export default function Home() {
   const [session, setSession] = useState<any>(undefined); // undefined = not checked yet
+  const [refresh, setRefresh] = useState(0); // 🔑 trigger refresh
   const router = useRouter();
 
   useEffect(() => {
@@ -31,7 +32,6 @@ export default function Home() {
   }, [session, router]);
 
   if (session === undefined) {
-    // Loading state while checking session
     return (
       <div className="flex justify-center items-center min-h-screen">
         <p className="text-gray-500">Checking session...</p>
@@ -47,11 +47,14 @@ export default function Home() {
       <main className="max-w-4xl mx-auto p-6 space-y-6">
         <section>
           <h2 className="text-xl font-bold mb-4 text-gray-700">Add Quiet Hour</h2>
-          <BlockForm userId={session.user.id} />
+          <BlockForm
+            userId={session.user.id}
+            onBlockAdded={() => setRefresh((r) => r + 1)} // 🔑 notify BlockList
+          />
         </section>
         <section>
           <h2 className="text-xl font-bold mb-4 text-gray-700">Scheduled Blocks</h2>
-          <BlockList userId={session.user.id} />
+          <BlockList userId={session.user.id} refresh={refresh} /> {/* 🔑 re-fetch */}
         </section>
       </main>
     </div>

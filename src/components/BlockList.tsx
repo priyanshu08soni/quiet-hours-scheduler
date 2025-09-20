@@ -8,10 +8,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Trash2, Edit2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import EditBlockModal from "./EditBlockModal";
 
-export default function BlockList({ userId }: { userId: string }) {
+export default function BlockList({
+  userId,
+  refresh,
+}: {
+  userId: string;
+  refresh: number;
+}) {
   const [blocks, setBlocks] = useState<any[]>([]);
 
   const fetchBlocks = async () => {
@@ -22,7 +28,7 @@ export default function BlockList({ userId }: { userId: string }) {
 
   useEffect(() => {
     fetchBlocks();
-  }, [userId]);
+  }, [userId, refresh]); // 🔑 re-run when refresh changes
 
   const deleteBlock = async (id: string) => {
     if (!confirm("Are you sure you want to delete this block?")) return;
@@ -61,7 +67,7 @@ export default function BlockList({ userId }: { userId: string }) {
                         endTime: updatedBlock.endTime,
                       }),
                     });
-                    // Refresh table
+                    // Refresh locally
                     setBlocks((prev) =>
                       prev.map((b) =>
                         b._id === updatedBlock._id ? updatedBlock : b

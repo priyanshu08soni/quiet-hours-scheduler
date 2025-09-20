@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/notifyBlocks",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

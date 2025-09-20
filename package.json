@@ -17,6 +17,7 @@
     "lucide-react": "^0.544.0",
     "mongodb": "latest",
     "next": "latest",
+    "node-cron": "^4.2.1",
     "nodemailer": "latest",
     "react": "latest",
     "react-day-picker": "^9.10.0",

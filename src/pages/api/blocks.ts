@@ -1,8 +1,7 @@
-// pages/api/blocks.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import clientPromise from "../../lib/mongodb";
 import { ObjectId } from "mongodb";
-import { supabase } from "../../lib/supabaseClient"; // import existing Supabase client
+import { supabaseServer } from "../../lib/supabaseServer"; // server-side client
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const client = await clientPromise;
@@ -10,7 +9,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const collection = db.collection("blocks");
 
   try {
-    // CREATE block
     if (req.method === "POST") {
       const { userId, date, startTime, endTime } = req.body;
 
@@ -18,9 +16,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ success: false, message: "Missing required fields" });
       }
 
-      // Fetch user email from Supabase
-      const { data: user, error } = await supabase
-        .from("users") // your Supabase users table
+      // Fetch user email using service role key (bypasses RLS)
+      const { data: user, error } = await supabaseServer
+        .from("users")
         .select("email")
         .eq("id", userId)
         .single();
@@ -30,7 +28,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const email = user.email;
-
       const startTimeUTC = new Date(`${date}T${startTime}:00Z`).toISOString();
       const endTimeUTC = new Date(`${date}T${endTime}:00Z`).toISOString();
 
@@ -45,16 +42,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         notified: false,
         createdAt: new Date(),
       });
-      console.log(result)
+
       return res.status(201).json({ success: true, id: result.insertedId });
     }
 
-    // GET blocks by userId
+    // GET blocks
     if (req.method === "GET") {
       const { userId } = req.query;
-      if (!userId) {
-        return res.status(400).json({ success: false, message: "Missing userId" });
-      }
+      if (!userId) return res.status(400).json({ success: false, message: "Missing userId" });
+
       const blocks = await collection.find({ userId }).toArray();
       return res.json(blocks);
     }
@@ -62,9 +58,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // UPDATE block
     if (req.method === "PUT") {
       const { id, date, startTime, endTime } = req.body;
-      if (!id || !date || !startTime || !endTime) {
+      if (!id || !date || !startTime || !endTime)
         return res.status(400).json({ success: false, message: "Missing required fields" });
-      }
 
       const startTimeUTC = new Date(`${date}T${startTime}:00Z`).toISOString();
       const endTimeUTC = new Date(`${date}T${endTime}:00Z`).toISOString();
@@ -80,15 +75,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // DELETE block
     if (req.method === "DELETE") {
       const { id } = req.query;
-      if (!id) {
-        return res.status(400).json({ success: false, message: "Missing block id" });
-      }
+      if (!id) return res.status(400).json({ success: false, message: "Missing block id" });
 
       const result = await collection.deleteOne({ _id: new ObjectId(id as string) });
       return res.json({ success: result.deletedCount > 0 });
     }
 
-    // Method not allowed
     return res.status(405).json({ success: false, message: "Method not allowed" });
   } catch (err) {
     console.error("Error handling request:", err);

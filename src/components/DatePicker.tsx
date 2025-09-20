@@ -17,7 +17,7 @@ export default function DatePicker({ date, setDate }: { date: string; setDate: (
           {date || "Select Date"}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0 rounded-lg shadow-lg">
+      <PopoverContent className="w-auto p-5 rounded-lg shadow-lg">
         <DayPicker
           mode="single"
           selected={date ? new Date(date) : undefined}
